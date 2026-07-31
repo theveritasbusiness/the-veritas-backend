@@ -6,6 +6,8 @@ const connectionString =
   process.env.DATABASE_PUBLIC_URL ||
   process.env.POSTGRES_URL;
 
+// Right now I am using the proxy hostname of the database in teh backend. 
+// I tried internal but it's not working for some reason
 // Railway internal hostnames (postgres.railway.internal) and localhost do NOT use SSL.
 // Public proxy hostnames (e.g., proxy.rlwy.net) require SSL.
 const isLocalOrInternal =
