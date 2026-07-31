@@ -1,7 +1,10 @@
 import pkg from "pg";
 const { Pool } = pkg;
 
-const connectionString = process.env.DATABASE_URL;
+const connectionString =
+  process.env.DATABASE_URL ||
+  process.env.DATABASE_PUBLIC_URL ||
+  process.env.POSTGRES_URL;
 
 // Railway internal hostnames (postgres.railway.internal) and localhost do NOT use SSL.
 // Public proxy hostnames (e.g., proxy.rlwy.net) require SSL.
