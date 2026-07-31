@@ -39,8 +39,23 @@ app.use("/api/elections", electionRoutes);
 app.use("/shorts", shortRoutes);
 app.use("/subcategories", subcategoryRoutes);
 
+import pool from "./db.js";
+
 app.get("/", (req, res) => {
   res.send("Veritas backend running");
+});
+
+app.get("/db-test", async (req, res) => {
+  try {
+    const dbUrl = process.env.DATABASE_URL || "NOT_SET";
+    const maskedUrl = dbUrl !== "NOT_SET" ? dbUrl.replace(/:([^:@]+)@/, ":****@") : "NOT_SET";
+    const result = await pool.query("SELECT NOW()");
+    res.json({ status: "connected", time: result.rows[0].now, databaseUrl: maskedUrl });
+  } catch (err) {
+    const dbUrl = process.env.DATABASE_URL || "NOT_SET";
+    const maskedUrl = dbUrl !== "NOT_SET" ? dbUrl.replace(/:([^:@]+)@/, ":****@") : "NOT_SET";
+    res.status(500).json({ status: "error", message: err.message, code: err.code, databaseUrl: maskedUrl });
+  }
 });
 
 const PORT = process.env.PORT || 5000;
