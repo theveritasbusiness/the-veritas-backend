@@ -23,7 +23,8 @@ app.use(
       "https://theveritas.in",
       "https://www.theveritas.in",
       "http://www.theveritas.in",
-      "http://theveritas.in"
+      "http://theveritas.in",
+      "http://localhost:3001"
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
