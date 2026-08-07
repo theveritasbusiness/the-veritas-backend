@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import compression from "compression";
 
 import articleRoutes from "./routes/articles.js";
 import editorRoutes from "./routes/editors.js";
@@ -11,6 +12,8 @@ import subcategoryRoutes from "./routes/subcategories.js";
 dotenv.config();
 
 const app = express();
+
+app.use(compression());
 
 app.use(
   cors({

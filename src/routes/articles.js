@@ -231,8 +231,52 @@ function parseLiveUpdates(article) {
 
 router.get("/", async (req, res) => {
   try {
+    res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
     const columns = await getArticleColumns();
-    const result = await pool.query("SELECT * FROM articles");
+
+    const isFull = isTruthy(req.query.full);
+    let selectSql = "*";
+
+    if (!isFull) {
+      const cardColumns = [
+        "id",
+        "title",
+        "subheadline",
+        hasColumn(columns, "slug") ? "slug" : null,
+        hasColumn(columns, "category") ? "category" : null,
+        hasColumn(columns, "hero_image") ? "hero_image" : null,
+        hasColumn(columns, "hero_caption") ? "hero_caption" : null,
+        hasColumn(columns, "hero_focus") ? "hero_focus" : null,
+        hasColumn(columns, "hero_crop") ? "hero_crop" : null,
+        hasColumn(columns, "author_name") ? "author_name" : null,
+        hasColumn(columns, "subcategory") ? "subcategory" : null,
+        hasColumn(columns, "subcategory_slug") ? "subcategory_slug" : null,
+        hasColumn(columns, "hashtags") ? "hashtags" : null,
+        hasColumn(columns, "is_breaking") ? "is_breaking" : null,
+        hasColumn(columns, "show_on_slider") ? "show_on_slider" : null,
+        hasColumn(columns, "show_on_category_slider") ? "show_on_category_slider" : null,
+        hasColumn(columns, "is_editorial") ? "is_editorial" : null,
+        hasColumn(columns, "is_live") ? "is_live" : null,
+        hasColumn(columns, "approved") ? "approved" : null,
+        hasColumn(columns, "status") ? "status" : null,
+        hasColumn(columns, "published_at") ? "published_at" : null,
+        hasColumn(columns, "priority") ? "priority" : null
+      ].filter(Boolean);
+
+      selectSql = cardColumns.length > 0 ? cardColumns.join(", ") : "*";
+    }
+
+    const limit = Number.parseInt(req.query.limit, 10);
+    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    let querySql = `SELECT ${selectSql} FROM articles`;
+    const queryParams = [];
+
+    if (Number.isInteger(limit) && limit > 0) {
+      querySql += ` LIMIT $1 OFFSET $2`;
+      queryParams.push(limit, (page - 1) * limit);
+    }
+
+    const result = await pool.query(querySql, queryParams);
     res.json(normalizePublishedArticles(result.rows, columns));
   } catch (err) {
     let columns;
@@ -248,12 +292,30 @@ router.get("/", async (req, res) => {
 
 router.get("/breaking", async (req, res) => {
   try {
+    res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
     const columns = await getArticleColumns();
     if (!hasColumn(columns, "is_breaking")) {
       return res.json([]);
     }
 
-    const result = await pool.query("SELECT * FROM articles");
+    const cardColumns = [
+      "id",
+      "title",
+      "subheadline",
+      hasColumn(columns, "slug") ? "slug" : null,
+      hasColumn(columns, "category") ? "category" : null,
+      hasColumn(columns, "hero_image") ? "hero_image" : null,
+      hasColumn(columns, "hero_crop") ? "hero_crop" : null,
+      hasColumn(columns, "author_name") ? "author_name" : null,
+      hasColumn(columns, "is_breaking") ? "is_breaking" : null,
+      hasColumn(columns, "approved") ? "approved" : null,
+      hasColumn(columns, "status") ? "status" : null,
+      hasColumn(columns, "published_at") ? "published_at" : null
+    ].filter(Boolean);
+
+    const result = await pool.query(
+      `SELECT ${cardColumns.join(", ")} FROM articles WHERE is_breaking = true`
+    );
     const rows = normalizePublishedArticles(result.rows, columns).filter((article) =>
       isTruthy(article.is_breaking)
     );

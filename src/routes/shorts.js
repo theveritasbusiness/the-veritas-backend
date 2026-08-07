@@ -92,6 +92,7 @@ function parseShortUrl(rawUrl = "") {
 
 router.get("/", async (_req, res) => {
   try {
+    res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
     await ensureShortsTable();
 
     const result = await pool.query(`
