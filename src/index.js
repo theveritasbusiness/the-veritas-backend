@@ -8,6 +8,8 @@ import editorRoutes from "./routes/editors.js";
 import electionRoutes from "./routes/electionRoutes.js";
 import shortRoutes from "./routes/shorts.js";
 import subcategoryRoutes from "./routes/subcategories.js";
+import mediaRoutes from "./routes/media.js";
+import { mediaRewriteMiddleware, loadMediaMap, rewriteEnabled } from "./media/rewrite.js";
 
 dotenv.config();
 
@@ -36,11 +38,16 @@ app.use(
 
 app.use(express.json());
 
+// Rewrites Cloudinary URLs to the CDN on the way out. No-op unless MEDIA_REWRITE=on,
+// so the cutover and its rollback are both a single environment variable.
+app.use(mediaRewriteMiddleware);
+
 app.use("/articles", articleRoutes);
 app.use("/editors", editorRoutes);
 app.use("/api/elections", electionRoutes);
 app.use("/shorts", shortRoutes);
 app.use("/subcategories", subcategoryRoutes);
+app.use("/media", mediaRoutes);
 
 import pool from "./db.js";
 
@@ -63,6 +70,18 @@ app.get("/db-test", async (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
+
+  if (rewriteEnabled()) {
+    try {
+      const count = await loadMediaMap();
+      console.log(`Media rewrite ON — ${count} Cloudinary URLs mapped to the CDN`);
+    } catch (err) {
+      // Serving the original Cloudinary URLs is the safe failure here.
+      console.error("Media map failed to load; rewrite will pass through:", err.message);
+    }
+  } else {
+    console.log("Media rewrite OFF");
+  }
 });
