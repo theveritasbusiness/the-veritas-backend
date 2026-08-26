@@ -29,7 +29,6 @@ async function ensureMediaTable() {
       base_path TEXT,
       canonical_key TEXT NOT NULL,
       original_key TEXT NOT NULL,
-      cloudinary_url TEXT UNIQUE,
       width INTEGER,
       height INTEGER,
       bytes_before BIGINT,
@@ -38,7 +37,17 @@ async function ensureMediaTable() {
     )
   `);
 
-  await pool.query(`CREATE INDEX IF NOT EXISTS media_assets_cloudinary_idx ON media_assets (cloudinary_url)`);
+  // Many Cloudinary URLs can point at one image: 90 assets were uploaded more
+  // than once, one of them six times. So the mapping is its own table rather
+  // than a unique column on media_assets.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS media_url_map (
+      cloudinary_url TEXT PRIMARY KEY,
+      sha256 TEXT NOT NULL REFERENCES media_assets (sha256) ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`CREATE INDEX IF NOT EXISTS media_url_map_sha_idx ON media_url_map (sha256)`);
 
   ensured = true;
 }

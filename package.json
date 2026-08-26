@@ -22,5 +22,8 @@
     "multer": "^2.2.0",
     "pg": "^8.16.3",
     "sharp": "^0.35.3"
+  },
+  "devDependencies": {
+    "p-limit": "^7.3.1"
   }
 }

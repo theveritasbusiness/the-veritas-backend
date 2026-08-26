@@ -1,0 +1,4 @@
+# Migration data lives outside the repo (see lib/env.mjs). Never commit it.
+archive/
+out/
+node_modules/

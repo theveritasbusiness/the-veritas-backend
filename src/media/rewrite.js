@@ -38,9 +38,11 @@ export function publicIdOf(url) {
 }
 
 export async function loadMediaMap() {
-  const { rows } = await pool.query(
-    "SELECT cloudinary_url, canonical_key FROM media_assets WHERE cloudinary_url IS NOT NULL"
-  );
+  const { rows } = await pool.query(`
+    SELECT m.cloudinary_url, a.canonical_key
+    FROM media_url_map m
+    JOIN media_assets a ON a.sha256 = m.sha256
+  `);
 
   const base = (process.env.CDN_BASE || "https://cdn.theveritas.in").replace(/\/$/, "");
   const nextByUrl = new Map();
