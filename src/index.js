@@ -9,6 +9,7 @@ import electionRoutes from "./routes/electionRoutes.js";
 import shortRoutes from "./routes/shorts.js";
 import subcategoryRoutes from "./routes/subcategories.js";
 import mediaRoutes from "./routes/media.js";
+import originalRoutes from "./routes/originals.js";
 import { mediaRewriteMiddleware, loadMediaMap, rewriteEnabled } from "./media/rewrite.js";
 
 dotenv.config();
@@ -48,6 +49,7 @@ app.use("/api/elections", electionRoutes);
 app.use("/shorts", shortRoutes);
 app.use("/subcategories", subcategoryRoutes);
 app.use("/media", mediaRoutes);
+app.use("/originals", originalRoutes);
 
 import pool from "./db.js";
 
