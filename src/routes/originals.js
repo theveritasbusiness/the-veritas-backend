@@ -18,16 +18,34 @@ async function ensureOriginalsTable() {
       description TEXT NOT NULL DEFAULT '',
       youtube_url TEXT NOT NULL,
       youtube_video_id TEXT NOT NULL,
+      article_id INTEGER,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
 
+  // Added after the table shipped, so tables created by the first release need
+  // it too. ON DELETE is deliberately not a constraint: an Original outlives
+  // the article it points at, and a dangling id simply reads as unconnected.
+  await pool.query(`ALTER TABLE originals ADD COLUMN IF NOT EXISTS article_id INTEGER`);
+
   ensured = true;
 }
 
 const ORIGINAL_COLUMNS =
-  "id, title, description, youtube_url, youtube_video_id, created_at, updated_at";
+  "id, title, description, youtube_url, youtube_video_id, article_id, created_at, updated_at";
+
+// Reads join the connected article so the slug is always current: storing a
+// copy of it here would go stale the moment an article is re-slugged.
+const SELECT_ORIGINALS = `
+  SELECT
+    o.id, o.title, o.description, o.youtube_url, o.youtube_video_id,
+    o.article_id, o.created_at, o.updated_at,
+    a.slug AS article_slug,
+    a.title AS article_title
+  FROM originals o
+  LEFT JOIN articles a ON a.id = o.article_id
+`;
 
 // A YouTube video id is always 11 characters of [A-Za-z0-9_-].
 const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
@@ -87,8 +105,20 @@ function readOriginalBody(body = {}) {
     title,
     description,
     youtube_url: parsed.url,
-    youtube_video_id: parsed.videoId
+    youtube_video_id: parsed.videoId,
+    article_id: readArticleId(body.article_id)
   };
+}
+
+// Connecting an article is optional; anything that is not a positive integer
+// clears the link rather than failing the save.
+function readArticleId(value) {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const id = Number.parseInt(value, 10);
+  return Number.isInteger(id) && id > 0 ? id : null;
 }
 
 // 400 for anything the editor can fix by retyping the form, 500 otherwise.
@@ -106,9 +136,8 @@ router.get("/", async (_req, res) => {
     await ensureOriginalsTable();
 
     const result = await pool.query(`
-      SELECT ${ORIGINAL_COLUMNS}
-      FROM originals
-      ORDER BY created_at DESC, id DESC
+      ${SELECT_ORIGINALS}
+      ORDER BY o.created_at DESC, o.id DESC
     `);
 
     res.json(result.rows);
@@ -123,9 +152,8 @@ router.get("/admin", requireAuth, async (_req, res) => {
     await ensureOriginalsTable();
 
     const result = await pool.query(`
-      SELECT ${ORIGINAL_COLUMNS}
-      FROM originals
-      ORDER BY created_at DESC, id DESC
+      ${SELECT_ORIGINALS}
+      ORDER BY o.created_at DESC, o.id DESC
     `);
 
     res.json(result.rows);
@@ -141,9 +169,8 @@ router.get("/admin/:id", requireAuth, async (req, res) => {
 
     const result = await pool.query(
       `
-      SELECT ${ORIGINAL_COLUMNS}
-      FROM originals
-      WHERE id = $1
+      ${SELECT_ORIGINALS}
+      WHERE o.id = $1
       LIMIT 1
       `,
       [req.params.id]
@@ -168,9 +195,8 @@ router.get("/:id", async (req, res) => {
 
     const result = await pool.query(
       `
-      SELECT ${ORIGINAL_COLUMNS}
-      FROM originals
-      WHERE id = $1
+      ${SELECT_ORIGINALS}
+      WHERE o.id = $1
       LIMIT 1
       `,
       [req.params.id]
@@ -195,11 +221,17 @@ router.post("/", requireAuth, async (req, res) => {
 
     const result = await pool.query(
       `
-      INSERT INTO originals (title, description, youtube_url, youtube_video_id)
-      VALUES ($1, $2, $3, $4)
+      INSERT INTO originals (title, description, youtube_url, youtube_video_id, article_id)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING ${ORIGINAL_COLUMNS}
       `,
-      [original.title, original.description, original.youtube_url, original.youtube_video_id]
+      [
+        original.title,
+        original.description,
+        original.youtube_url,
+        original.youtube_video_id,
+        original.article_id
+      ]
     );
 
     res.status(201).json(result.rows[0]);
@@ -217,8 +249,9 @@ router.put("/:id", requireAuth, async (req, res) => {
     const result = await pool.query(
       `
       UPDATE originals
-      SET title = $1, description = $2, youtube_url = $3, youtube_video_id = $4, updated_at = NOW()
-      WHERE id = $5
+      SET title = $1, description = $2, youtube_url = $3, youtube_video_id = $4,
+          article_id = $5, updated_at = NOW()
+      WHERE id = $6
       RETURNING ${ORIGINAL_COLUMNS}
       `,
       [
@@ -226,6 +259,7 @@ router.put("/:id", requireAuth, async (req, res) => {
         original.description,
         original.youtube_url,
         original.youtube_video_id,
+        original.article_id,
         req.params.id
       ]
     );
