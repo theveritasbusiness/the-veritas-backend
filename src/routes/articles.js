@@ -145,6 +145,8 @@ function normalizeArticle(article, columns) {
     subcategory: article.subcategory || "",
     subcategory_slug: article.subcategory_slug || "",
     hero_crop: heroCrop,
+    show_on_slider: isTruthy(article.show_on_slider),
+    show_on_category_slider: isTruthy(article.show_on_category_slider),
     is_live: Boolean(article.is_live),
     live_updates: liveUpdates,
     live_updated_at: liveUpdates[0]?.created_at || article.updated_at || article.published_at || null,
@@ -231,7 +233,11 @@ function parseLiveUpdates(article) {
 
 router.get("/", async (req, res) => {
   try {
-    res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=600");
+    const homepageSliderOnly = isTruthy(req.query.homepage_slider);
+    res.setHeader(
+      "Cache-Control",
+      homepageSliderOnly ? "private, no-store" : "public, max-age=60, s-maxage=300, stale-while-revalidate=600"
+    );
     const columns = await getArticleColumns();
 
     const isFull = isTruthy(req.query.full);
@@ -277,7 +283,8 @@ router.get("/", async (req, res) => {
     }
 
     const result = await pool.query(querySql, queryParams);
-    res.json(normalizePublishedArticles(result.rows, columns));
+    const articles = normalizePublishedArticles(result.rows, columns);
+    res.json(homepageSliderOnly ? articles.filter((article) => article.show_on_slider) : articles);
   } catch (err) {
     let columns;
     try {
