@@ -343,6 +343,7 @@ router.get("/admin", requireAuth, async (req, res) => {
       hasColumn(columns, "approved") ? "approved" : null,
       hasColumn(columns, "is_live") ? "is_live" : null,
       hasColumn(columns, "is_editorial") ? "is_editorial" : null,
+      hasColumn(columns, "show_on_slider") ? "show_on_slider" : null,
       hasColumn(columns, "published_at") ? "published_at" : null,
       hasColumn(columns, "priority") ? "priority" : null
     ].filter(Boolean);
